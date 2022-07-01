@@ -1,0 +1,243 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+    <title>Leaflet Control Resizer Basic Demo</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css" crossorigin="">
+    <script src="https://unpkg.com/leaflet@1.3.1/dist/leaflet-src.js" crossorigin=""></script>
+    <style type="text/css">
+      .leaflet-control-resizer-corner-e,
+      .leaflet-control-resizer-corner-s,
+      .leaflet-control-resizer-corner-se {
+        z-index: 1000;
+        position: absolute
+      }
+
+      .leaflet-control-resizer-corner-e {
+        right: 0;
+        height: 100%
+      }
+
+      .leaflet-control-resizer-corner-s {
+        bottom: 0;
+        width: 100%
+      }
+
+      .leaflet-control-resizer-corner-se {
+        right: 0;
+        bottom: 0
+      }
+
+      .leaflet-control-resizer-transparent {
+        background-color: transparent;
+        user-select: none;
+        transition: .5s
+      }
+
+      .leaflet-control-resizer-transparent::after {
+        border-color: transparent;
+        transition: .5s
+      }
+
+      .leaflet-control-resizer-opaque,
+      .leaflet-control-resizer-transparent-fakedhover,
+      .leaflet-control-resizer-transparent:hover {
+        background-color: rgba(255, 250, 170, .8)
+      }
+
+      .leaflet-control-resizer-opaque::after,
+      .leaflet-control-resizer-transparent-fakedhover::after,
+      .leaflet-control-resizer-transparent:hover::after {
+        border-color: rgba(85, 85, 85, .9)
+      }
+
+      .leaflet-control-resizer-e {
+        width: 25px;
+        height: 50px;
+        border-top-left-radius: 25px;
+        border-bottom-left-radius: 25px;
+        cursor: e-resize;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%)
+      }
+
+      .leaflet-control-resizer-s {
+        width: 50px;
+        height: 25px;
+        border-top-left-radius: 25px;
+        border-top-right-radius: 25px;
+        cursor: s-resize;
+        left: 50%;
+        bottom: 0;
+        transform: translateX(-50%)
+      }
+
+      .leaflet-control-resizer-se {
+        width: 35px;
+        height: 35px;
+        border-top-left-radius: 35px;
+        cursor: se-resize;
+        right: 0;
+        bottom: 0;
+        position: absolute
+      }
+
+      .leaflet-control-resizer-e::after,
+      .leaflet-control-resizer-s::after,
+      .leaflet-control-resizer-se::after {
+        content: '';
+        position: absolute;
+        z-index: 999;
+        border-width: 1px;
+        bottom: 20%;
+        right: 20%
+      }
+
+      .leaflet-control-resizer-e::after,
+      .leaflet-control-resizer-s::after {
+        width: 60%;
+        height: 60%
+      }
+
+      .leaflet-control-resizer-se::after {
+        width: 40%;
+        height: 40%
+      }
+
+      .leaflet-control-resizer-e::after,
+      .leaflet-control-resizer-se::after {
+        border-right-style: solid
+      }
+
+      .leaflet-control-resizer-s:after,
+      .leaflet-control-resizer-se::after {
+        border-bottom-style: solid
+      }
+
+      #map {
+        width: 350px;
+        height: 500px;
+        max-width: 100%;
+        max-height: 750px
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <div id="out"></div>
+    <script>
+      "use strict";
+      ! function(s) {
+        if (void 0 === s) throw new Error("Leaflet must be included first");
+        s.Control.Resizer = s.Control.extend({
+          options: {
+            direction: "e",
+            onlyOnHover: !1,
+            updateAlways: !0,
+            pan: !1
+          },
+          _END: {
+            mousedown: "mouseup",
+            touchstart: "touchend",
+            pointerdown: "touchend",
+            MSPointerDown: "touchend"
+          },
+          _MOVE: {
+            mousedown: "mousemove",
+            touchstart: "touchmove",
+            pointerdown: "touchmove",
+            MSPointerDown: "touchmove"
+          },
+          initialize: function(t) {
+            s.Util.setOptions(this, t), this._initialOffsetX = 0, this._initialOffsetY = 0, this.options.position = "leaflet-control-resizer-corner-" + this.options.direction, this.enable()
+          },
+          enable: function() {
+            return this._enabled = !0, this
+          },
+          disable: function() {
+            return this._enabled = !1, this
+          },
+          onAdd: function(t) {
+            this._prepareLocation(t);
+            var e = "leaflet-control-resizer",
+              i = e + (this.options.onlyOnHover ? "-transparent" : "-opaque"),
+              o = e + "-" + this.options.direction;
+            this._container = s.DomUtil.create("div", e + " " + i + " " + o, t.getContainer());
+            var n = this._container;
+            return s.DomEvent.on(n, "mousedown mouseup click touchstart drag", s.DomEvent.stopPropagation), s.DomEvent.on(n, "mousedown touchstart", this._initResize, this), this._container
+          },
+          onRemove: function(t) {
+            s.DomEvent.off(this._container, "mousedown touchstart", this._initResize, this), s.DomEvent.off(this._container, "mousedown mouseup click touchstart drag", s.DomEvent.stopPropagation)
+          },
+          fakeHover: function(t) {
+            var e = "leaflet-control-resizer-transparent-fakedhover",
+              i = this._container;
+            s.DomUtil.addClass(i, e), setTimeout(function() {
+              s.DomUtil.removeClass(i, e)
+            }, 1e3 | t)
+          },
+          _prepareLocation: function(t) {
+            var e = t._controlCorners,
+              i = "leaflet-control-resizer-corner-" + this.options.direction,
+              o = t._controlContainer;
+            e[i] = s.DomUtil.create("div", i, o)
+          },
+          _initResize: function(t) {
+            if (!t._simulated && this._enabled && !this._started) {
+              this._started = !0, this._moved = !1;
+              var e = t.touches && 1 === t.touches.length ? t.touches[0] : t;
+              s.DomUtil.disableImageDrag(), s.DomUtil.disableTextSelection(), this.fire("down", t);
+              var i = this._map.getContainer();
+              this._initialOffsetX = i.offsetWidth + i.offsetLeft - e.clientX, this._initialOffsetY = i.offsetHeight + i.offsetTop - e.clientY, s.DomEvent.on(document, this._END[t.type], this._stopResizing, this), s.DomEvent.on(this._container, this._END[t.type], this._stopResizing, this), s.DomEvent.on(document, this._MOVE[t.type], this._duringResizing, this)
+            }
+          },
+          _duringResizing: function(t) {
+            if (!t._simulated) {
+              var e = t.touches && 1 === t.touches.length ? t.touches[0] : t;
+              s.DomEvent.preventDefault(t), this._moved || this.fire("dragstart", t), this.fire("predrag", t);
+              var i = this._map.getContainer();
+              0 <= this.options.direction.indexOf("e") && (i.style.width = e.clientX - i.offsetLeft + this._initialOffsetX + "px", this._moved = !0), 0 <= this.options.direction.indexOf("s") && (i.style.height = e.clientY - i.offsetTop + this._initialOffsetY + "px", this._moved = !0), this._moved = !0, this.options.updateAlways && this._map.invalidateSize({
+                pan: this.options.pan
+              }), this.fire("drag", t)
+            }
+          },
+          _stopResizing: function(t) {
+            if (!t._simulated) {
+              for (var e in this._MOVE) s.DomEvent.off(document, this._MOVE[e], this._duringResizing, this), s.DomEvent.off(document, this._END[e], this._stopResizing, this), s.DomEvent.off(this._container, this._END[e], this._stopResizing, this);
+              this._map.invalidateSize({
+                pan: this.options.pan
+              }), s.DomUtil.enableImageDrag(), s.DomUtil.enableTextSelection(), this._started = !1, this.fire("dragend", t)
+            }
+          }
+        }), s.Control.Resizer.include(s.Evented.prototype), s.control.resizer = function(t) {
+          return new s.Control.Resizer(t)
+        }
+      }(L);
+      var center = [22.2608, 113.9612],
+        osm = L.tileLayer("//{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "© OpenStreetMap contributors"
+        }),
+        map = L.map("map", {
+          layers: [osm],
+          center: center,
+          zoom: 13
+        }),
+        e = L.control.resizer({
+          onlyOnHover: !0
+        }).addTo(map),
+        s = L.control.resizer({
+          direction: "s"
+        }).addTo(map);
+      L.control.resizer({
+        direction: "se",
+        pan: !0
+      }).addTo(map), setTimeout(function() {
+        e.fakeHover(1e3)
+      }, 1e3), L.DomEvent.on(s, "down dragstart predrag drag dragend", function(t) {
+        console.log(t.type, t)
+      })
+    </script>
+  </body>
+</html>
